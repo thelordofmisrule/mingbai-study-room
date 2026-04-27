@@ -850,6 +850,40 @@ export default function App() {
     }
   };
 
+  const moveTextToTopic = async (text) => {
+    if (!text?.id) return;
+
+    const nextTopicInput = window.prompt(
+      `Move "${text.title || "this text"}" to which island/topic?`,
+      text.topic || "General",
+    );
+
+    if (nextTopicInput === null) return;
+
+    const nextTopic = String(nextTopicInput || "").trim();
+    if (!nextTopic) {
+      pushNotice("error", "Enter an island/topic name.");
+      return;
+    }
+
+    const nextText = createReading({
+      ...text,
+      topic: nextTopic,
+    });
+
+    setIsTextSaving(true);
+    try {
+      const response = await saveReading(userSlug, nextText);
+      setActiveTopicSlug(nextText.topicSlug);
+      applyTextLibrary(response.readings, nextText.id);
+      pushNotice("success", `Moved ${nextText.title || "that text"} to ${nextText.topic}.`);
+    } catch (error) {
+      pushNotice("error", error.message || "Could not move that text to a different island.");
+    } finally {
+      setIsTextSaving(false);
+    }
+  };
+
   const sortTextDraftByDifficulty = () => {
     setTextDraft((prev) => {
       const sortedSentences = sortReadingSentencesByDifficulty(prev.sentences || []);
@@ -1692,6 +1726,9 @@ export default function App() {
                         title={azureReady ? "Generate Azure sentence audio for every missing sentence in this text" : "Set up Azure Speech first"}
                       >
                         {generatingTextAudioId === selectedText.id ? "Generating..." : "Generate missing audio"}
+                      </button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => moveTextToTopic(selectedText)} disabled={isTextSaving}>
+                        Move island
                       </button>
                       <button className="btn btn-ghost btn-sm" onClick={() => selectTextForEdit(selectedText)}>
                         Edit text
