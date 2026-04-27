@@ -850,6 +850,14 @@ export default function App() {
     }
   };
 
+  const combineTextNotes = (left = "", right = "") => {
+    const first = String(left || "").trim();
+    const second = String(right || "").trim();
+    if (!first) return second;
+    if (!second || first === second) return first;
+    return `${first}\n\n${second}`;
+  };
+
   const moveTextToTopic = async (text) => {
     if (!text?.id) return;
 
@@ -871,12 +879,44 @@ export default function App() {
       topic: nextTopic,
     });
 
+    const mergeTarget = texts.find((candidate) => (
+      candidate.id !== text.id
+      && candidate.topicSlug === nextText.topicSlug
+      && candidate.title.trim() === nextText.title.trim()
+    ));
+
     setIsTextSaving(true);
     try {
-      const response = await saveReading(userSlug, nextText);
-      setActiveTopicSlug(nextText.topicSlug);
-      applyTextLibrary(response.readings, nextText.id);
-      pushNotice("success", `Moved ${nextText.title || "that text"} to ${nextText.topic}.`);
+      if (mergeTarget) {
+        const mergedSentences = sortReadingSentencesByDifficulty([
+          ...(mergeTarget.sentences || []),
+          ...(text.sentences || []),
+        ]).map((sentence, index) => ({
+          ...sentence,
+          position: index,
+        }));
+
+        const mergedText = createReading({
+          ...mergeTarget,
+          topic: nextText.topic,
+          coverImageUrl: mergeTarget.coverImageUrl || text.coverImageUrl,
+          notes: combineTextNotes(mergeTarget.notes, text.notes),
+          tags: [...new Set([...(mergeTarget.tags || []), ...(text.tags || [])])],
+          body: mergedSentences.map((sentence) => sentence.text).join("\n"),
+          sentences: mergedSentences,
+        });
+
+        await saveReading(userSlug, mergedText);
+        const response = await deleteReadingById(userSlug, text.id);
+        setActiveTopicSlug(mergedText.topicSlug);
+        applyTextLibrary(response.readings, mergedText.id);
+        pushNotice("success", `Merged ${text.title || "that text"} into ${mergedText.topic}.`);
+      } else {
+        const response = await saveReading(userSlug, nextText);
+        setActiveTopicSlug(nextText.topicSlug);
+        applyTextLibrary(response.readings, nextText.id);
+        pushNotice("success", `Moved ${nextText.title || "that text"} to ${nextText.topic}.`);
+      }
     } catch (error) {
       pushNotice("error", error.message || "Could not move that text to a different island.");
     } finally {
