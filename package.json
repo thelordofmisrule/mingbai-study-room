@@ -3,9 +3,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/dev.mjs",
+    "dev:client": "vite",
+    "dev:server": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --watch server/index.js",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "node --env-file-if-exists=.env --env-file-if-exists=.env.local server/index.js",
+    "start": "node --env-file-if-exists=.env --env-file-if-exists=.env.local server/index.js",
+    "test": "node --test",
+    "media:download": "node scripts/download-source.mjs",
+    "clips:mine": "node scripts/mine-vocab-clips.mjs",
+    "clips:prune-dictionary": "node scripts/prune-imported-dictionary-clips.mjs",
+    "dict:install": "node scripts/install-cc-cedict.mjs",
+    "anki:seed": "node scripts/import-anki-apkg.mjs",
+    "anki:cleanup": "node scripts/cleanup-anki-import-metadata.mjs",
+    "anki:import": "node scripts/import-anki-apkg.mjs"
   },
   "dependencies": {
     "react": "^18.2.0",

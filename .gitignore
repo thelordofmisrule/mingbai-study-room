@@ -1,3 +1,14 @@
 node_modules
 dist
 .DS_Store
+.env.local
+data
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+media
+exports
+public/generated-clips
+public/imported-audio
+public/generated-tts
+cedict_1_0_ts_utf-8_mdbg_*.txt.gz

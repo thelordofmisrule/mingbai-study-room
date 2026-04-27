@@ -1,0 +1,11 @@
+study.example.com {
+	encode zstd gzip
+
+	# Replace with a hash from:
+	# caddy hash-password --plaintext 'choose-a-strong-password'
+	basic_auth {
+		studyuser $2a$14$replace-this-with-a-caddy-bcrypt-hash
+	}
+
+	reverse_proxy 127.0.0.1:3010
+}

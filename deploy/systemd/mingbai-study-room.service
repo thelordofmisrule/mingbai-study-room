@@ -1,0 +1,18 @@
+[Unit]
+Description=Mingbai Study Room
+After=network.target
+
+[Service]
+Type=simple
+User=mingbai
+Group=mingbai
+WorkingDirectory=/srv/mingbai-study-room
+Environment=NODE_ENV=production
+Environment=PORT=3010
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env npm run start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
