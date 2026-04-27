@@ -627,6 +627,7 @@ export default function App() {
   const [generatingTopicAudioSlug, setGeneratingTopicAudioSlug] = useState("");
   const [isReviewSaving, setIsReviewSaving] = useState(false);
   const [playAllSentenceId, setPlayAllSentenceId] = useState("");
+  const [mergeTargetId, setMergeTargetId] = useState("");
 
   const pinyinMode = preferences.pinyinMode === "hidden" ? "hidden" : "always";
   const audioMode = ["autoplay", "flow"].includes(preferences.audioMode) ? preferences.audioMode : "manual";
@@ -679,6 +680,19 @@ export default function App() {
     return () => window.clearTimeout(timeoutId);
   }, [notice]);
 
+  useEffect(() => {
+    if (!mergeTargetOptions.length) {
+      setMergeTargetId("");
+      return;
+    }
+
+    setMergeTargetId((current) => (
+      mergeTargetOptions.some((text) => text.id === current)
+        ? current
+        : mergeTargetOptions[0]?.id || ""
+    ));
+  }, [mergeTargetOptions]);
+
   const pushNotice = (kind, message) => setNotice({ kind, message });
 
   const applyTextLibrary = (nextReadings, preferredTextId = "") => {
@@ -726,6 +740,9 @@ export default function App() {
       || texts[0]
       || null
   ), [filteredTexts, selectedTextId, texts]);
+  const mergeTargetOptions = useMemo(() => (
+    texts.filter((text) => text.id !== selectedText?.id)
+  ), [texts, selectedText?.id]);
   const studyStats = useMemo(() => getSentenceStudyStats(texts, new Date(), {
     dailySentenceLimit: preferences.dailyReviewLimit,
     topicSlug: activeTopicSlug === "all" ? "" : activeTopicSlug,
@@ -919,6 +936,52 @@ export default function App() {
       }
     } catch (error) {
       pushNotice("error", error.message || "Could not move that text to a different island.");
+    } finally {
+      setIsTextSaving(false);
+    }
+  };
+
+  const mergeTextIntoTarget = async (sourceText, targetTextId) => {
+    if (!sourceText?.id) return;
+
+    const targetText = texts.find((text) => text.id === String(targetTextId || ""));
+    if (!targetText || targetText.id === sourceText.id) {
+      pushNotice("error", "Choose another text to merge into.");
+      return;
+    }
+
+    const ok = window.confirm(
+      `Merge "${sourceText.title || "this text"}" into "${targetText.title || "that text"}"? `
+      + `This will move ${sourceText.sentences.length} sentence${sourceText.sentences.length === 1 ? "" : "s"} and delete the source text.`,
+    );
+    if (!ok) return;
+
+    const mergedSentences = sortReadingSentencesByDifficulty([
+      ...(targetText.sentences || []),
+      ...(sourceText.sentences || []),
+    ]).map((sentence, index) => ({
+      ...sentence,
+      position: index,
+    }));
+
+    const mergedText = createReading({
+      ...targetText,
+      coverImageUrl: targetText.coverImageUrl || sourceText.coverImageUrl,
+      notes: combineTextNotes(targetText.notes, sourceText.notes),
+      tags: [...new Set([...(targetText.tags || []), ...(sourceText.tags || [])])],
+      body: mergedSentences.map((sentence) => sentence.text).join("\n"),
+      sentences: mergedSentences,
+    });
+
+    setIsTextSaving(true);
+    try {
+      await saveReading(userSlug, mergedText);
+      const response = await deleteReadingById(userSlug, sourceText.id);
+      setActiveTopicSlug(mergedText.topicSlug);
+      applyTextLibrary(response.readings, mergedText.id);
+      pushNotice("success", `Merged ${sourceText.title || "that text"} into ${mergedText.title || "the target text"}.`);
+    } catch (error) {
+      pushNotice("error", error.message || "Could not merge those texts.");
     } finally {
       setIsTextSaving(false);
     }
@@ -1770,6 +1833,29 @@ export default function App() {
                       <button className="btn btn-secondary btn-sm" onClick={() => moveTextToTopic(selectedText)} disabled={isTextSaving}>
                         Move island
                       </button>
+                      {mergeTargetOptions.length ? (
+                        <>
+                          <select
+                            className="input"
+                            value={mergeTargetId}
+                            onChange={(event) => setMergeTargetId(event.target.value)}
+                            aria-label="Merge this text into another text"
+                          >
+                            {mergeTargetOptions.map((text) => (
+                              <option key={text.id} value={text.id}>
+                                {text.title || "Untitled text"} · {text.topic}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => mergeTextIntoTarget(selectedText, mergeTargetId)}
+                            disabled={isTextSaving || !mergeTargetId}
+                          >
+                            Merge text
+                          </button>
+                        </>
+                      ) : null}
                       <button className="btn btn-ghost btn-sm" onClick={() => selectTextForEdit(selectedText)}>
                         Edit text
                       </button>
