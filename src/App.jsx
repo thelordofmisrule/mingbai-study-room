@@ -680,19 +680,6 @@ export default function App() {
     return () => window.clearTimeout(timeoutId);
   }, [notice]);
 
-  useEffect(() => {
-    if (!mergeTargetOptions.length) {
-      setMergeTargetId("");
-      return;
-    }
-
-    setMergeTargetId((current) => (
-      mergeTargetOptions.some((text) => text.id === current)
-        ? current
-        : mergeTargetOptions[0]?.id || ""
-    ));
-  }, [mergeTargetOptions]);
-
   const pushNotice = (kind, message) => setNotice({ kind, message });
 
   const applyTextLibrary = (nextReadings, preferredTextId = "") => {
@@ -743,6 +730,18 @@ export default function App() {
   const mergeTargetOptions = useMemo(() => (
     texts.filter((text) => text.id !== selectedText?.id)
   ), [texts, selectedText?.id]);
+  useEffect(() => {
+    if (!mergeTargetOptions.length) {
+      setMergeTargetId("");
+      return;
+    }
+
+    setMergeTargetId((current) => (
+      mergeTargetOptions.some((text) => text.id === current)
+        ? current
+        : mergeTargetOptions[0]?.id || ""
+    ));
+  }, [mergeTargetOptions]);
   const studyStats = useMemo(() => getSentenceStudyStats(texts, new Date(), {
     dailySentenceLimit: preferences.dailyReviewLimit,
     topicSlug: activeTopicSlug === "all" ? "" : activeTopicSlug,
