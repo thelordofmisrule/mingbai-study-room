@@ -1133,10 +1133,12 @@ export default function App() {
       }
       return latestText;
     } catch (error) {
+      const message = error.message || "Could not finish generating sentence audio.";
       if (!silent) {
-        pushNotice("error", error.message || "Could not finish generating sentence audio.");
+        pushNotice("error", message);
+      } else {
+        throw new Error(`${text?.title || "Text"}: ${message}`);
       }
-      return null;
     } finally {
       setGeneratingTextAudioId("");
     }
@@ -1176,9 +1178,7 @@ export default function App() {
     try {
       for (const originalText of topicTexts) {
         const updatedText = await ensureTextAudio(originalText, { silent: true });
-        if (!updatedText) {
-          throw new Error(`Could not generate audio for ${originalText.title || "one of the texts"}.`);
-        }
+        if (!updatedText) return;
       }
 
       pushNotice(

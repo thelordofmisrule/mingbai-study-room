@@ -489,6 +489,7 @@ const server = http.createServer(async (request, response) => {
       sendText(response, 404, "Not found.");
     }
   } catch (error) {
+    console.error("Request failed:", error);
     const statusCode = error?.statusCode || 500;
     sendJson(response, statusCode, {
       error: error?.message || "Internal server error.",
