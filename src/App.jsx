@@ -274,6 +274,8 @@ function TopicCard({
   onStudy,
   onBrowse,
   onGenerateAudio,
+  onRename,
+  onDelete,
 }) {
   return (
     <article className={`panel topic-card${selected ? " is-selected" : ""}`}>
@@ -307,6 +309,8 @@ function TopicCard({
         >
           {isGeneratingAudio ? "Generating..." : topic.missingAudioCount ? `Generate island audio (${topic.missingAudioCount})` : "Island audio ready"}
         </button>
+        <button className="btn btn-secondary btn-sm" onClick={onRename}>Rename island</button>
+        <button className="btn btn-ghost btn-sm danger" onClick={onDelete}>Delete island</button>
       </div>
     </article>
   );
@@ -324,9 +328,9 @@ function SentenceBankImporter({
     <section className="panel workspace-panel text-editor-panel">
       <div className="panel-head">
         <div>
-          <div className="section-title">Import sentence bank</div>
+          <div className="section-title">Import CSV / TSV sentence bank</div>
           <div className="panel-subcopy">
-            Paste one sentence per line, or load a CSV/TSV file. Recommended headers: sentence, pinyin, translation, tags, topic, note.
+            Paste CSV/TSV rows or load a CSV/TSV file. Use the `topic` column to name language islands. Recommended headers: sentence, pinyin, translation, tags, topic, note.
           </div>
         </div>
         <button className="btn btn-ghost btn-sm" onClick={onClose}>
@@ -335,42 +339,13 @@ function SentenceBankImporter({
       </div>
 
       <div className="field-grid">
-        <input
-          className="input"
-          value={draft.title}
-          onChange={(event) => onChange({ title: event.target.value })}
-          placeholder="Collection title"
-        />
-        <input
-          className="input"
-          value={draft.topic}
-          onChange={(event) => onChange({ topic: event.target.value })}
-          placeholder="Default island / topic"
-        />
-        <input
-          className="input"
-          value={draft.tags}
-          onChange={(event) => onChange({ tags: event.target.value })}
-          placeholder="Default tags (comma separated)"
-        />
         <textarea
           className="input"
           rows={14}
           value={draft.raw}
           onChange={(event) => onChange({ raw: event.target.value })}
-          placeholder={"你好。\tHello.\tni hao\tgreeting, basics\trestaurant\n我要一碗面。\tI'd like a bowl of noodles.\t\tfood, ordering\trestaurant"}
+          placeholder={"sentence\tpinyin\ttranslation\ttags\ttopic\tnote\n你好。\tnǐ hǎo\tHello\tgreeting,basics\tgreetings\tSimple opener\n我要一碗面。\twǒ yào yì wǎn miàn\tI'd like a bowl of noodles.\tfood,ordering\trestaurant\tCommon ordering sentence"}
         />
-        <textarea
-          className="input"
-          rows={3}
-          value={draft.notes}
-          onChange={(event) => onChange({ notes: event.target.value })}
-          placeholder="Optional note for this import batch"
-        />
-      </div>
-
-      <div className="panel-subcopy">
-        Fresh imports are automatically sorted from easier to harder sentence order inside each island.
       </div>
 
       <div className="action-row">
@@ -464,12 +439,24 @@ function TextEditor({
   isSaving = false,
   isEditing = false,
 }) {
+  const updateSentences = (nextSentences) => {
+    const normalized = nextSentences.map((sentence, index) => ({
+      ...sentence,
+      position: index,
+    }));
+
+    onChange({
+      sentences: normalized,
+      body: normalized.map((sentence) => sentence.text).join("\n"),
+    });
+  };
+
   return (
     <section className="panel workspace-panel text-editor-panel">
       <div className="panel-head">
         <div>
-          <div className="section-title">{isEditing ? "Edit text" : "Add text"}</div>
-          <div className="panel-subcopy">Import or paste a text, assign it to an island, then tune sentence translations, pinyin, and notes.</div>
+          <div className="section-title">{isEditing ? "Edit text" : "Text editor"}</div>
+          <div className="panel-subcopy">Tune the island name, text metadata, and the sentence bank inside this text.</div>
         </div>
         <button className="btn btn-ghost btn-sm" onClick={onClose}>
           Hide editor
@@ -497,53 +484,70 @@ function TextEditor({
               <div key={sentence.id} className="reading-draft-sentence">
                 <div className="reading-draft-sentence-head">
                   <div className="sentence-index">{sentence.position + 1}</div>
-                  <div className="sentence-text">
-                    {sentence.text}
+                  <div className="sentence-text reading-draft-sentence-text-field">
+                    <textarea
+                      className="input"
+                      rows={2}
+                      value={sentence.text}
+                      onChange={(event) => updateSentences(
+                        text.sentences.map((entry) => (
+                          entry.id === sentence.id ? { ...entry, text: event.target.value } : entry
+                        )),
+                      )}
+                      placeholder="Sentence text"
+                    />
                     <span className="sentence-editor-difficulty">{sentence.difficultyLabel}</span>
                   </div>
+                  <button
+                    className="btn btn-ghost btn-sm danger"
+                    type="button"
+                    onClick={() => updateSentences(text.sentences.filter((entry) => entry.id !== sentence.id))}
+                  >
+                    Delete sentence
+                  </button>
                 </div>
                 <div className="reading-draft-sentence-fields">
                   <textarea
                     className="input"
                     rows={2}
                     value={sentence.pinyin}
-                    onChange={(event) => onChange({
-                      sentences: text.sentences.map((entry) => (
+                    onChange={(event) => updateSentences(
+                      text.sentences.map((entry) => (
                         entry.id === sentence.id ? { ...entry, pinyin: event.target.value } : entry
                       )),
-                    })}
+                    )}
                     placeholder="Sentence pinyin"
                   />
                   <textarea
                     className="input"
                     rows={2}
                     value={sentence.translation}
-                    onChange={(event) => onChange({
-                      sentences: text.sentences.map((entry) => (
+                    onChange={(event) => updateSentences(
+                      text.sentences.map((entry) => (
                         entry.id === sentence.id ? { ...entry, translation: event.target.value } : entry
                       )),
-                    })}
+                    )}
                     placeholder="English translation"
                   />
                   <textarea
                     className="input"
                     rows={2}
                     value={sentence.note}
-                    onChange={(event) => onChange({
-                      sentences: text.sentences.map((entry) => (
+                    onChange={(event) => updateSentences(
+                      text.sentences.map((entry) => (
                         entry.id === sentence.id ? { ...entry, note: event.target.value } : entry
                       )),
-                    })}
+                    )}
                     placeholder="Usage note"
                   />
                   <input
                     className="input"
                     value={tagsToFieldValue(sentence.tags)}
-                    onChange={(event) => onChange({
-                      sentences: text.sentences.map((entry) => (
+                    onChange={(event) => updateSentences(
+                      text.sentences.map((entry) => (
                         entry.id === sentence.id ? { ...entry, tags: parseTagsInput(event.target.value) } : entry
                       )),
-                    })}
+                    )}
                     placeholder="Sentence tags (comma separated)"
                   />
                 </div>
@@ -560,7 +564,7 @@ function TextEditor({
 
       <div className="action-row">
         <button className="btn btn-primary" onClick={onSave} disabled={isSaving}>
-          {isSaving ? "Saving..." : isEditing ? "Save text" : "Add text"}
+          {isSaving ? "Saving..." : "Save text"}
         </button>
         {isEditing ? (
           <button className="btn btn-ghost danger" onClick={onDelete} disabled={isSaving}>
@@ -574,7 +578,6 @@ function TextEditor({
 
 export default function App() {
   const userSlug = DEFAULT_USER_SLUG;
-  const importFileInputRef = useRef(null);
   const sentenceBankFileInputRef = useRef(null);
   const currentSentenceAudioRef = useRef(null);
   const playAllAudioRef = useRef(null);
@@ -609,9 +612,6 @@ export default function App() {
   const [textDraft, setTextDraft] = useState(createEmptyReading());
   const [sentenceImportDraft, setSentenceImportDraft] = useState({
     title: "",
-    topic: "General",
-    tags: "",
-    notes: "",
     raw: "",
   });
   const [isTextSaving, setIsTextSaving] = useState(false);
@@ -758,6 +758,15 @@ export default function App() {
     setTextDraft((prev) => {
       const nextDraft = { ...prev, ...patch };
 
+      if (Object.prototype.hasOwnProperty.call(patch, "sentences")) {
+        return createReading({
+          ...nextDraft,
+          body: Object.prototype.hasOwnProperty.call(patch, "body")
+            ? patch.body
+            : (patch.sentences || []).map((sentence) => sentence.text).join("\n"),
+        });
+      }
+
       if (Object.prototype.hasOwnProperty.call(patch, "body")) {
         return preserveReadingSentenceData(prev, createReading({
           ...nextDraft,
@@ -769,20 +778,9 @@ export default function App() {
     });
   };
 
-  const openNewTextEditor = () => {
-    setTextDraft(createEmptyReading());
-    setIsTextEditorOpen(true);
-    setIsSentenceImportOpen(false);
-    setActiveView("texts");
-  };
-
   const openSentenceImporter = () => {
     setIsSentenceImportOpen(true);
     setIsTextEditorOpen(false);
-    setSentenceImportDraft((prev) => ({
-      ...prev,
-      topic: selectedText?.topic || prev.topic || "General",
-    }));
     setActiveView("texts");
   };
 
@@ -802,29 +800,6 @@ export default function App() {
 
   const closeSentenceImporter = () => {
     setIsSentenceImportOpen(false);
-  };
-
-  const importTextFromFile = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-
-    try {
-      const raw = await file.text();
-      const nextDraft = createReading({
-        id: createEmptyReading().id,
-        title: titleFromFilename(file.name),
-        topic: selectedText?.topic || "General",
-        body: String(raw || "").replace(/^\uFEFF/u, ""),
-      });
-      setTextDraft(nextDraft);
-      setIsTextEditorOpen(true);
-      setIsSentenceImportOpen(false);
-      setActiveView("texts");
-      pushNotice("success", `${file.name} imported into the text editor.`);
-    } catch (error) {
-      pushNotice("error", error.message || "Could not import that text file.");
-    }
   };
 
   const loadSentenceBankFile = async (event) => {
@@ -1044,9 +1019,6 @@ export default function App() {
 
     const readings = createSentenceBankReadings(sentenceImportDraft.raw, {
       title: sentenceImportDraft.title,
-      topic: sentenceImportDraft.topic,
-      tags: parseTagsInput(sentenceImportDraft.tags),
-      notes: sentenceImportDraft.notes,
     });
 
     if (!readings.length) {
@@ -1067,9 +1039,6 @@ export default function App() {
       setIsSentenceImportOpen(false);
       setSentenceImportDraft({
         title: "",
-        topic: sentenceImportDraft.topic || "General",
-        tags: "",
-        notes: "",
         raw: "",
       });
       pushNotice(
@@ -1190,6 +1159,76 @@ export default function App() {
       pushNotice("error", error.message || "Could not finish generating island audio.");
     } finally {
       setGeneratingTopicAudioSlug("");
+    }
+  };
+
+  const renameTopic = async (topic) => {
+    const slug = String(topic?.slug || "").trim();
+    const topicTexts = texts.filter((text) => text.topicSlug === slug);
+    if (!topicTexts.length) {
+      pushNotice("error", "No texts found in that island.");
+      return;
+    }
+
+    const nextTitleInput = window.prompt("Rename this island to:", topic.title || "General");
+    if (nextTitleInput === null) return;
+
+    const nextTitle = String(nextTitleInput || "").trim();
+    if (!nextTitle) {
+      pushNotice("error", "Enter an island name.");
+      return;
+    }
+
+    setIsTextSaving(true);
+    try {
+      let latestReadings = texts;
+      for (const text of topicTexts) {
+        const response = await saveReading(userSlug, createReading({
+          ...text,
+          topic: nextTitle,
+        }));
+        latestReadings = response.readings || latestReadings;
+      }
+      const nextSlug = topicSlugFromName(nextTitle);
+      setActiveTopicSlug(nextSlug);
+      applyTextLibrary(latestReadings, topicTexts[0]?.id || "");
+      pushNotice("success", `Renamed island to ${nextTitle}.`);
+    } catch (error) {
+      pushNotice("error", error.message || "Could not rename that island.");
+    } finally {
+      setIsTextSaving(false);
+    }
+  };
+
+  const deleteTopic = async (topic) => {
+    const slug = String(topic?.slug || "").trim();
+    const topicTexts = texts.filter((text) => text.topicSlug === slug);
+    if (!topicTexts.length) {
+      pushNotice("error", "No texts found in that island.");
+      return;
+    }
+
+    const sentenceCount = topicTexts.reduce((sum, text) => sum + text.sentences.length, 0);
+    const ok = window.confirm(
+      `Delete island "${topic.title}" and all of its ${topicTexts.length} text${topicTexts.length === 1 ? "" : "s"} / ${sentenceCount} sentence${sentenceCount === 1 ? "" : "s"}?`,
+    );
+    if (!ok) return;
+
+    setIsTextSaving(true);
+    try {
+      let latestReadings = texts;
+      for (const text of topicTexts) {
+        const response = await deleteReadingById(userSlug, text.id);
+        latestReadings = response.readings || latestReadings;
+      }
+      setActiveTopicSlug("all");
+      applyTextLibrary(latestReadings || []);
+      setIsTextEditorOpen(false);
+      pushNotice("success", `Deleted island ${topic.title}.`);
+    } catch (error) {
+      pushNotice("error", error.message || "Could not delete that island.");
+    } finally {
+      setIsTextSaving(false);
     }
   };
 
@@ -1553,15 +1592,6 @@ export default function App() {
         ) : null}
 
         <input
-          ref={importFileInputRef}
-          type="file"
-          accept=".txt,.text,.md,text/plain,text/markdown"
-          className="hidden-input"
-          onChange={importTextFromFile}
-          aria-hidden="true"
-          tabIndex={-1}
-        />
-        <input
           ref={sentenceBankFileInputRef}
           type="file"
           accept=".csv,.CSV,.tsv,.TSV,.txt,.TXT,text/*,application/vnd.ms-excel"
@@ -1714,7 +1744,7 @@ export default function App() {
             {topicSummaries.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-title">No islands yet</div>
-                <div className="empty-copy">Create a text, give it a topic like ordering at a restaurant or going to the barber, and the app will start building sentence reps around that island.</div>
+                <div className="empty-copy">Import a CSV or TSV sentence bank and let the `topic` column create your islands.</div>
               </div>
             ) : (
               topicSummaries.map((topic) => (
@@ -1733,6 +1763,8 @@ export default function App() {
                     setActiveView("texts");
                   }}
                   onGenerateAudio={() => generateTopicAudio(topic.slug, { promptBeforeGenerate: true })}
+                  onRename={() => renameTopic(topic)}
+                  onDelete={() => deleteTopic(topic)}
                 />
               ))
             )}
@@ -1746,7 +1778,7 @@ export default function App() {
                 <div>
                   <div className="section-title">Text Library</div>
                   <div className="panel-subcopy">
-                    {filteredTextCount} of {texts.length} text{texts.length === 1 ? "" : "s"} shown. Each text feeds a bank of sentence repetitions.
+                    {filteredTextCount} of {texts.length} text{texts.length === 1 ? "" : "s"} shown. Import sentence banks as CSV/TSV and let the `topic` column define your islands.
                   </div>
                 </div>
                 <div className="deck-tools">
@@ -1759,11 +1791,8 @@ export default function App() {
                       ))}
                     </select>
                   </label>
-                  <button className="btn btn-secondary btn-sm" onClick={() => importFileInputRef.current?.click()}>
-                    Import text file
-                  </button>
                   <button className="btn btn-secondary btn-sm" onClick={openSentenceImporter}>
-                    Import sentence bank
+                    Import CSV / TSV
                   </button>
                   {activeTopicSlug !== "all" ? (
                     <button
@@ -1774,9 +1803,6 @@ export default function App() {
                       {generatingTopicAudioSlug === activeTopicSlug ? "Generating island..." : "Generate island audio"}
                     </button>
                   ) : null}
-                  <button className="btn btn-secondary btn-sm" onClick={openNewTextEditor}>
-                    Add text
-                  </button>
                   <button className="btn btn-ghost btn-sm danger" onClick={wipeSentenceLibrary} disabled={isTextSaving || isSentenceImporting}>
                     Wipe library
                   </button>
@@ -1786,7 +1812,7 @@ export default function App() {
               {filteredTexts.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-title">No texts yet</div>
-                  <div className="empty-copy">Import a text, assign it to a topic, and start farming sentence reps.</div>
+                  <div className="empty-copy">Import a CSV or TSV sentence bank and use the `topic` column to start building islands.</div>
                 </div>
               ) : (
                 <div className="reading-card-grid">
