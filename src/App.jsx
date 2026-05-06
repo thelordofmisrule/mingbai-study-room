@@ -628,6 +628,7 @@ export default function App() {
   const [isReviewSaving, setIsReviewSaving] = useState(false);
   const [playAllSentenceId, setPlayAllSentenceId] = useState("");
   const [mergeTargetId, setMergeTargetId] = useState("");
+  const [isFlowActive, setIsFlowActive] = useState(false);
 
   const pinyinMode = preferences.pinyinMode === "hidden" ? "hidden" : "always";
   const audioMode = ["autoplay", "flow"].includes(preferences.audioMode) ? preferences.audioMode : "manual";
@@ -1288,6 +1289,12 @@ export default function App() {
     }
   }, [activeView]);
 
+  useEffect(() => {
+    if (audioMode !== "flow") {
+      setIsFlowActive(false);
+    }
+  }, [audioMode]);
+
   const reviewCurrentSentence = async (rating, options = {}) => {
     const targetSentence = options.targetSentence || currentSentence;
     if (!targetSentence || isReviewSaving) return;
@@ -1426,10 +1433,15 @@ export default function App() {
       if (audio) {
         audio.pause();
       }
+      setIsFlowActive(false);
       return;
     }
 
     if (audioMode === "manual" || isReviewSaving || !currentSentence) {
+      return;
+    }
+
+    if (audioMode === "flow" && !isFlowActive) {
       return;
     }
 
@@ -1441,13 +1453,16 @@ export default function App() {
       mode: audioMode,
       autoAdvance: audioMode === "flow",
     });
-  }, [activeView, audioMode, currentSentence, currentSentence?.mediaUrl, isReviewSaving, audioSpeed]);
+  }, [activeView, audioMode, currentSentence, currentSentence?.mediaUrl, isReviewSaving, audioSpeed, isFlowActive]);
 
   useEffect(() => {
     lastAutoplayKeyRef.current = "";
   }, [currentSentence?.id]);
 
   const replayCurrentSentence = () => {
+    if (audioMode === "flow") {
+      setIsFlowActive(true);
+    }
     playCurrentSentence({
       mode: audioMode,
       autoAdvance: audioMode === "flow",
@@ -1627,7 +1642,7 @@ export default function App() {
 
                 <div className="sentence-player-controls">
                   <button className="btn btn-secondary btn-sm" onClick={replayCurrentSentence}>
-                    {audioMode === "flow" ? "Restart flow" : "Replay x2"}
+                    {audioMode === "flow" ? (isFlowActive ? "Restart flow" : "Start flow") : "Replay x2"}
                   </button>
                   <button
                     className="btn btn-secondary btn-sm"
@@ -1648,7 +1663,7 @@ export default function App() {
                   {audioMode === "flow" ? (
                     <button
                       className="btn btn-secondary btn-sm"
-                      onClick={() => updatePreferences({ audioMode: "manual" })}
+                      onClick={() => setIsFlowActive(false)}
                     >
                       Pause flow
                     </button>
@@ -1670,7 +1685,9 @@ export default function App() {
 
                 {audioMode === "flow" ? (
                   <div className="panel-subcopy sentence-flow-note">
-                    Flow mode plays each sentence twice, records it as <strong>Good</strong>, and advances automatically until the queue is done.
+                    {isFlowActive
+                      ? <>Flow mode plays each sentence twice, records it as <strong>Good</strong>, and advances automatically until the queue is done.</>
+                      : <>Flow mode is paused. Press <strong>Start flow</strong> when you want it to begin advancing.</>}
                   </div>
                 ) : (
                   <div className="rating-grid sentence-rating-grid">
